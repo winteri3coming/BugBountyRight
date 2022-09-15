@@ -1,8 +1,6 @@
 - Any expired reset password link can still be used to reset the password.
 - Ultimate MySQL Injection Payload (Detetify)
 IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1))/*'XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR'|"XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR"*/
-
-
 - First of all, get to know your application, spend some time on using it normally but keep burp open
 - Start with XSS and SSTI as early as possible if in scope, insert them into every field you se
 - Create your own fuzzing lists
@@ -874,5 +872,4 @@ https://www.dehashed.com/
 		3.  Try using the 12345
 		4.  if its working you can try getting as many as OTP's to increase the chances of bruteforcing
 
-- 2FA - Password Change: After changing the password the webapp may not ask for 2FA confirmation
-- 
+- 2FA - Password Change: After changing the password the webapp may not ask for 2FA confirmation.
