@@ -112,7 +112,8 @@ https://www.target01.com//mahdi.com/ It will Redirect you to //mahdi.com/, and b
 - when testing cloud environement, look for cloud_metadata.txt. it contains a list of urls to their internal metadata services.
 - kibana will return a content length of 217 if it is publicly open and one can access the dashboard without authentication.
 - in a cloud test, if you found a .cspkg file it's gold, it's a zip file with all compiled code and config files.
-- search for publi trello boards of companies, chances you find login creds and api keys, if not n you could find team boards and copmanies.
+- search for publi trello boards of companies, chances you find login creds and
+  api keys, if not n you could find team boards and copmanies.
 - Want to find employeess of a company on github, use this "CompanyName" & type=user.
 - if you want to know the name of inside-site aws3 bucket, just put %c0 into url.
 - found an s3 bucket behind a cdn and can't get the name? change to https and if the response was the same then the bucket name should be the same as hostname.
@@ -120,6 +121,12 @@ https://www.target01.com//mahdi.com/ It will Redirect you to //mahdi.com/, and b
 - use intelx.io and inteltechniques.com/menu (record of all pastebins, even removed ones)
 - use pastebin.com
 - use ideone.com
+- try making 301,302,303,307 redirect to gopher:// and send smtp commands, your mail box may fire
+- Download.php?file=../config.php ==> 403:
+            Download.php?file=. /config.php⨀ ==> 200
+            Download.php?file=⊡ /config.php⨀  ==> 200
+            Download.php?file= .⊡ /config.php  ==> 200
+- The request could not be satisfied. ---> AWS Cloudfront -->possible subdomain takeover
 - search copyright string on google to find other website owned by the target, intext: Example.inc"
 - compnaies leave their log instances exposed to public, dork: inurl:app/kibana
 - forget the subdomain for recon, go for the asn asn and hit the network range organisation, a new world arrises without wafs, a lot of messy ssl certs and unprotected hosts and hidden scopes.
